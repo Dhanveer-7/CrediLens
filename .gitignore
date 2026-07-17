@@ -1,0 +1,30 @@
+# Node.js dependencies
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Python files & caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Local databases and environmental configuration
+.env
+.env.*
+!.env.example
+local_db.json
+
+# System & Editor files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

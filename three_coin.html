@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrediLens | 3D Interactive Royal Coin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #0A0914; /* Deep Royal Velvet Slate */
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            position: relative;
+        }
+
+        /* Ambient background Aurora glow */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(197, 168, 128, 0.1) 0%, transparent 70%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .overlay-card {
+            position: absolute;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            padding: 24px 32px;
+            border-radius: 20px;
+            color: #FAF9F6;
+            text-align: center;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+            pointer-events: none;
+            bottom: 8%;
+        }
+
+        h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #FAF9F6 40%, #C5A880 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            font-size: 13px;
+            color: rgba(255,255,255,0.6);
+        }
+    </style>
+    <!-- Include Three.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div class="overlay-card">
+        <h2>Interactive 3D CrediLens Coin</h2>
+        <p>Move your cursor around to tilt the gold coin dynamically.</p>
+    </div>
+
+    <script>
+        // Set up Scene, Camera, and Renderer
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 10;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // Group Pivot for Mouse Tilt
+        const coinGroup = new THREE.Group();
+        scene.add(coinGroup);
+
+        // Create Metallic Gold Coin
+        // Thin cylinder representation
+        const geometry = new THREE.CylinderGeometry(2.5, 2.5, 0.25, 64, 1, false);
+        
+        // Custom Metallic Gold Material settings
+        const material = new THREE.MeshStandardMaterial({
+            color: 0xD4AF37,       // Royal Gold
+            metalness: 0.95,       // Highly polished metal
+            roughness: 0.12,       // Shiny reflections
+            bumpScale: 0.05
+        });
+
+        const coinMesh = new THREE.Mesh(geometry, material);
+        // Rotate so flat side faces camera initially
+        coinMesh.rotation.x = Math.PI / 2;
+        coinGroup.add(coinMesh);
+
+        // Add details to the coin (Inner Rim to look authentic)
+        const ringGeo = new THREE.TorusGeometry(2.3, 0.06, 16, 100);
+        const ringMesh = new THREE.Mesh(ringGeo, material);
+        ringMesh.position.z = 0.13; // Front rim
+        coinMesh.add(ringMesh);
+
+        const ringMeshBack = new THREE.Mesh(ringGeo, material);
+        ringMeshBack.position.z = -0.13; // Back rim
+        coinMesh.add(ringMeshBack);
+
+        // Lighting setup for high-fidelity reflections
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+        scene.add(ambientLight);
+
+        // Warm directional key light
+        const dirLight1 = new THREE.DirectionalLight(0xfff5e6, 1.5);
+        dirLight1.position.set(5, 5, 5);
+        scene.add(dirLight1);
+
+        // Cool fill light from opposite direction
+        const dirLight2 = new THREE.DirectionalLight(0x8a92ff, 0.6);
+        dirLight2.position.set(-5, -5, 2);
+        scene.add(dirLight2);
+
+        // Point light for extra shine
+        const pointLight = new THREE.PointLight(0xffffff, 1.2, 15);
+        pointLight.position.set(0, 3, 4);
+        scene.add(pointLight);
+
+        // Track mouse movement coordinates
+        let mouseX = 0;
+        let mouseY = 0;
+        
+        const targetRotation = { x: 0, y: 0 };
+
+        window.addEventListener('mousemove', (event) => {
+            // Map coordinates to range [-1, 1]
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Handle window resize dynamically
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Animation Loop
+        const animate = () => {
+            requestAnimationFrame(animate);
+
+            // 1. Slowly rotate the coin mesh Y-axis (spin)
+            coinMesh.rotation.y += 0.012;
+
+            // 2. Interpolate parent group rotation toward cursor coordinates (tilt)
+            targetRotation.x = mouseY * 0.35;
+            targetRotation.y = mouseX * 0.35;
+
+            // Smooth interpolation (lerp)
+            coinGroup.rotation.x += (targetRotation.x - coinGroup.rotation.x) * 0.08;
+            coinGroup.rotation.y += (targetRotation.y - coinGroup.rotation.y) * 0.08;
+
+            renderer.render(scene, camera);
+        };
+
+        animate();
+    </script>
+</body>
+</html>
