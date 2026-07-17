@@ -4,6 +4,70 @@
 
 ---
 
+## 📐 System Architecture
+
+The following diagram outlines the system architecture, detailing user interaction, the React client components (including Three.js 3D and Speech Synthesis), FastAPI backend pipeline, failsafe database routing, and Google Gemini integration:
+
+```mermaid
+graph TD
+    %% User and UI layer
+    User([Borrower]) -->|Uploads PDF / Image| Frontend[React Frontend: Vite + TS + CSS]
+    User -->|Interacts / Changes Language| Frontend
+    
+    %% UI Components & Libraries
+    subgraph Frontend [React Web Client]
+        UI[UI Shell & Locales /locale.ts/]
+        ThreeJS[3D Gold Coin Visualizer /ThreeCoin.tsx/]
+        TTS[Speech Synthesis /VoicePlayer.tsx/]
+        Dashboard[Interactive Dashboard /ClauseExplainer.tsx/]
+    end
+    
+    %% Backend connection
+    Frontend -->|API Requests: JSON / Auth Header| Backend[FastAPI Backend /main.py/]
+    
+    %% Backend pipeline
+    subgraph Backend [FastAPI Server]
+        Router{API Endpoints}
+        Auth[JWT Auth & Bcrypt]
+        OCR[Document Processor]
+        Translate[Translator]
+        Chat[Chat Engine]
+    end
+    
+    Router --> Auth
+    Router --> OCR
+    Router --> Translate
+    Router --> Chat
+    
+    %% Data routing
+    OCR -->|Digital PDF| PyPDF[PyPDF Extractor]
+    OCR -->|Scanned PDF / Image| Base64[Base64 Image Encoder]
+    
+    %% LLM & AI Services
+    Base64 -->|Image Bytes| Gemini[Google Gemini 2.5 Flash API]
+    PyPDF -->|Extracted Text| Gemini
+    Translate -->|Raw Summary JSON| Gemini
+    Chat -->|History + Context| Gemini
+    
+    %% Database layer
+    Auth & OCR -->|User Profiles & History| DBGate{DB Gateway}
+    DBGate -->|Primary| MongoDB[Local MongoDB Server: localhost:27017]
+    DBGate -->|Fallback / Exception| LocalDB[Failsafe local_db.json File]
+    
+    %% Stylings
+    classDef frontend fill:#4F46E5,stroke:#312E81,color:#fff,stroke-width:2px;
+    classDef backend fill:#10B981,stroke:#065F46,color:#fff,stroke-width:2px;
+    classDef ai fill:#F59E0B,stroke:#92400E,color:#fff,stroke-width:2px;
+    classDef db fill:#EC4899,stroke:#9D174D,color:#fff,stroke-width:2px;
+    
+    class Frontend,UI,ThreeJS,TTS,Dashboard frontend;
+    class Backend,Router,Auth,OCR,Translate,Chat,PyPDF,Base64 backend;
+    class Gemini ai;
+    class DBGate,MongoDB,LocalDB db;
+```
+
+---
+
 ## 🌟 Key Features
 
 *   **3D Interactive Interface**: A polished WebGL 3D gold coin visualizer powered by Three.js on the login screen that automatically spins and dynamically tilts in response to your mouse cursor movements.
