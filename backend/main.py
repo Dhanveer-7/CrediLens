@@ -482,3 +482,91 @@ def get_analysis(analysis_id: str, email: str = Depends(get_current_user)):
     if not doc:
         raise HTTPException(status_code=404, detail="Analysis report not found")
     return doc
+
+
+# Machine Learning Predictor Endpoint (Trained on uploaded Kaggle Dataset)
+class PredictApprovalRequest(BaseModel):
+    age: int
+    income: float
+    loan_amount: float
+    credit_score: int
+    years_experience: int
+    gender: str
+    education: str
+    employment_type: str
+
+PREDICTOR_MODEL = None
+PREDICTOR_ENCODERS = None
+
+def get_predictor_resources():
+    global PREDICTOR_MODEL, PREDICTOR_ENCODERS
+    if PREDICTOR_MODEL is None or PREDICTOR_ENCODERS is None:
+        import joblib
+        model_path = os.path.join(os.path.dirname(__file__), "model", "loan_predictor.joblib")
+        encoders_path = os.path.join(os.path.dirname(__file__), "model", "label_encoders.joblib")
+        if os.path.exists(model_path) and os.path.exists(encoders_path):
+            PREDICTOR_MODEL = joblib.load(model_path)
+            PREDICTOR_ENCODERS = joblib.load(encoders_path)
+        else:
+            raise RuntimeError("Trained machine learning model files not found.")
+    return PREDICTOR_MODEL, PREDICTOR_ENCODERS
+
+@app.post("/api/predict-approval")
+def predict_approval(req: PredictApprovalRequest):
+    try:
+        model, encoders = get_predictor_resources()
+        import pandas as pd
+        
+        # Safe mapping for categorical features with Unknown fallback
+        gender_val = req.gender if req.gender in encoders['Gender'].classes_ else 'Unknown'
+        gender_encoded = int(encoders['Gender'].transform([gender_val])[0])
+        
+        edu_val = req.education if req.education in encoders['Education'].classes_ else 'Unknown'
+        edu_encoded = int(encoders['Education'].transform([edu_val])[0])
+        
+        emp_val = req.employment_type if req.employment_type in encoders['EmploymentType'].classes_ else 'Unknown'
+        emp_encoded = int(encoders['EmploymentType'].transform([emp_val])[0])
+        
+        input_row = pd.DataFrame([{
+            'Age': req.age,
+            'Income': req.income,
+            'LoanAmount': req.loan_amount,
+            'CreditScore': req.credit_score,
+            'YearsExperience': req.years_experience,
+            'Gender': gender_encoded,
+            'Education': edu_encoded,
+            'EmploymentType': emp_encoded
+        }])
+        
+        # Compute predicted probability of approval (class 1)
+        probabilities = model.predict_proba(input_row)[0]
+        approval_prob = float(probabilities[1]) * 100.0
+        prediction = int(model.predict(input_row)[0])
+        
+        # Compile financial diagnostic warnings/advices
+        advices = []
+        if req.credit_score < 580:
+            advices.append("Your credit score is low (Poor). Focus on clearing outstanding bills and avoiding new loan inquiries to restore your rating.")
+        elif req.credit_score < 670:
+            advices.append("Your credit score is moderate (Fair). Keeping credit utilization below 30% and building a history of timely payments will boost approval odds.")
+        elif req.credit_score < 740:
+            advices.append("Your credit score is good. You are likely to qualify for standard interest rate brackets.")
+        else:
+            advices.append("Your credit score is outstanding (Excellent)! You qualify for premium prime loan interest rates and waivers.")
+
+        # Evaluate Debt exposure (Loan Amount compared to Annual Income)
+        annual_income = max(req.income * 12.0, 1.0)
+        debt_to_income = req.loan_amount / annual_income
+        if debt_to_income > 0.5:
+            advices.append(f"High Debt-to-Income Exposure: Requested loan is {debt_to_income*100:.1f}% of your annual income. Lenders may request extra collateral.")
+        else:
+            advices.append("Healthy Debt-to-Income Ratio: Your request sits comfortably within standard annual repayment metrics.")
+
+        return {
+            "success": True,
+            "approval_probability": round(approval_prob, 1),
+            "prediction": prediction,
+            "recommendations": advices
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")

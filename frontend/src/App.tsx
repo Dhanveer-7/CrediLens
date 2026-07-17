@@ -12,7 +12,8 @@ import {
   Sparkles,
   Type,
   Briefcase,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from "lucide-react";
 
 import { UI_LOCALIZATION, type Language } from "./locale";
@@ -26,12 +27,13 @@ import { CompareSection } from "./components/CompareSection";
 import { DictionarySection } from "./components/DictionarySection";
 import { ChatbotSection } from "./components/ChatbotSection";
 import { ThreeCoin } from "./components/ThreeCoin";
+import { PredictorSection } from "./components/PredictorSection";
 
 const API_BASE_URL = "http://127.0.0.1:8000";
 
 export default function App() {
   // Navigation & UI States
-  const [activeTab, setActiveTab] = useState<"upload" | "dashboard" | "compare" | "dictionary" | "chatbot" | "history">("upload");
+  const [activeTab, setActiveTab] = useState<"upload" | "dashboard" | "compare" | "dictionary" | "chatbot" | "history" | "predictor">("upload");
   const [language, setLanguage] = useState<Language>("en");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const [textScale, setTextScale] = useState<"normal" | "large" | "xl">("normal");
@@ -313,6 +315,17 @@ export default function App() {
     }
     
     return `This loan is for ${sum.loan_amount} with an interest rate of ${sum.interest_rate} per year. Your estimated monthly EMI is ${sum.estimated_emi} for a duration of ${sum.loan_duration}. The risk score evaluated is ${risks.risk_score} out of 100, which classifies this loan as ${risks.risk_level}.`;
+  };
+
+  const getPredictorLabel = (lang: Language): string => {
+    switch (lang) {
+      case "hi": return "स्वीकृति गणना";
+      case "ta": return "ஒப்புதல் கணிப்பான்";
+      case "te": return "ఆమోదం క్యాలిక్యులేటర్";
+      case "kn": return "ಅನುಮೋದನೆ ಕ್ಯಾಲ್ಕುಲೇಟರ್";
+      case "ml": return "അനുമതി കാൽക്കുലേറ്റർ";
+      default: return "Approval Calculator";
+    }
   };
 
   // Auth Screen Render
@@ -670,6 +683,14 @@ export default function App() {
             <History size={16} />
             <span>{text.history}</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab("predictor")}
+            className={`nav-tab ${activeTab === "predictor" ? "active" : ""}`}
+          >
+            <Activity size={16} />
+            <span>{getPredictorLabel(language)}</span>
+          </button>
         </nav>
 
         {/* Dynamic Panels */}
@@ -792,6 +813,15 @@ export default function App() {
               </div>
             </div>
             )
+          )}
+
+          {/* LOAN APPROVAL PREDICTOR PANEL */}
+          {activeTab === "predictor" && (
+            <PredictorSection
+              language={language}
+              authToken={token}
+              apiBaseUrl={API_BASE_URL}
+            />
           )}
 
           {/* COMPARE PANEL */}
