@@ -241,7 +241,7 @@ export default function App() {
       });
       (window as any).google.accounts.id.prompt();
     } else {
-      alert("No Google Client ID configured in App.tsx. Simulating Google Login via a mock OAuth profile...");
+      console.warn("No Google Client ID configured in App.tsx. Simulating Google Login via a mock OAuth profile...");
       sendGoogleToken("mock_google_credential");
     }
   };
